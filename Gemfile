@@ -36,6 +36,9 @@ group :development, :test do
 
   gem 'dotenv-rails'
 
+  gem 'webmock'
+  gem 'sinatra'
+
 end
 
 group :development do

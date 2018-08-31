@@ -1,52 +1,23 @@
 require 'test_helper'
 
-class ApiControllerTest < ActionDispatch::IntegrationTest
-  
-  test 'should get valid tree' do
-    get api_tree_url('input')
-    assert_response :success
+class TreeServiceTest < ActiveSupport::TestCase
+
+  test 'should return [] for an input tree of a wrong structure' do
+    input = JSON.parse(File.read(Rails.root.join("test/fixtures/trees/incorrect-json.json" )))
+    output = TreeService.prune(input, [1])
+    assert_equal output, []
   end
 
-  test 'should be 404 for invalid tree name' do
-    get api_tree_url('noname')
-    assert_response :not_found
+  test 'should return [] if no indicator_ids provided' do
+    input = JSON.parse(File.read(Rails.root.join("test/fixtures/trees/input.json" )))
+    output = TreeService.prune(input)
+    assert_equal output, []
   end
 
-  test 'should not survive in case of repeated timeouts' do
-    get api_tree_url('timeout')
-    assert_response :bad_gateway
-  end
-
-  test 'should not survive in case of "derper" sample error' do
-    get api_tree_url('derper')
-    assert_response :bad_gateway
-    assert_match 'Internal derper error', @response.body
-  end
-
-  test 'should handle non-JSON in upstream response' do
-    get api_tree_url('not-a-json')
-    assert_response :bad_gateway
-  end
-
-  test 'should handle JSON of a wrong structure in upstream response' do
-    get api_tree_url('incorrect-json', indicator_ids: [1])
-    assert_response :success
-    json = JSON.parse(@response.body)
-    assert_equal json, []
-  end
-
-  test 'should get [] if no indicator_ids provided' do
-    get api_tree_url('input')
-    assert_response :success
-    json = JSON.parse(@response.body)
-    assert_equal json, []
-  end
-
-  test 'should get only "Crude death rate"."total" in response for indicator_ids[]=1' do
-    get api_tree_url('input', indicator_ids: [1])
-    assert_response :success
-    json = JSON.parse(@response.body)
-    assert_equal json, JSON.parse('
+  test 'should only extract "Crude death rate"."total" for ids=[1] from sample dataset' do
+    input = JSON.parse(File.read(Rails.root.join("test/fixtures/trees/input.json" )))
+    output = TreeService.prune(input, [1])
+    assert_equal output, JSON.parse('
       [
         {
           "id": 2, 
@@ -75,32 +46,35 @@ class ApiControllerTest < ActionDispatch::IntegrationTest
     ')
   end
 
-  test 'should disregard invalid indicator IDs' do
-    get api_tree_url('input', indicator_ids: [1,'%$#','wrong'])
-    assert_response :success
-    json = JSON.parse(@response.body)
-    assert_equal json, JSON.parse('
+  test 'should keep all extra keys' do
+    input = JSON.parse(File.read(Rails.root.join("test/fixtures/trees/extra-keys.json" )))
+    output = TreeService.prune(input, [299])
+    assert_equal output, JSON.parse('
       [
         {
-          "id": 2, 
-          "name": "Demographics", 
+          "id": 1, 
+          "name": "Urban Extent", 
+          "note": "EXTRA THEME KEY",
           "sub_themes": [
             {
+              "id": 1, 
+              "name": "Administrative",
+              "note": "EXTRA SUB-THEME KEY",
               "categories": [
                 {
-                  "id": 11, 
+                  "id": 1, 
+                  "name": "Area", 
+                  "unit": "(sq. km.)",
+                  "note": "EXTRA CATEGORY KEY",
                   "indicators": [
                     {
-                      "id": 1, 
-                      "name": "total"
+                      "id": 299, 
+                      "name": "Total",
+                      "note": "EXTRA INDICATOR KEY"
                     }
-                  ], 
-                  "name": "Crude death rate", 
-                  "unit": "(deaths per 1000 people)"
+                  ]
                 }
-              ], 
-              "id": 4, 
-              "name": "Births and Deaths"
+              ]
             }
           ]
         }
@@ -109,10 +83,9 @@ class ApiControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'should pass the example testing case' do
-    get api_tree_url('input', indicator_ids: [31,32,1])
-    assert_response :success
-    json = JSON.parse(@response.body)
-    assert_equal json, JSON.parse('
+    input = JSON.parse(File.read(Rails.root.join("test/fixtures/trees/input.json" )))
+    output = TreeService.prune(input, [31,32,1])
+    assert_equal output, JSON.parse('
       [
         {
           "id": 2, 

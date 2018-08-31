@@ -23,7 +23,7 @@ class UpstreamService
 
     return JSON.parse(response.to_s)
     
-  rescue JSON::ParserError, HTTP::ConnectionError, ApplicationExceptions::UpstreamServiceError => e
+  rescue JSON::ParserError, HTTP::ConnectionError, HTTP::TimeoutError, ApplicationExceptions::UpstreamServiceError => e
     
     if attempt < ENV['UPSTREAM_RETRIES'].to_i
 
